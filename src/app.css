@@ -1,0 +1,96 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------- */
+/* Fonts (Tech Startup pairing: Space Grotesk headings / DM Sans body)    */
+/* ---------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@theme {
+	--font-heading: 'Space Grotesk', sans-serif;
+	--font-body: 'DM Sans', sans-serif;
+
+	/* White & Green palette */
+	--color-bg:              #ffffff;
+	--color-surface:         #f0fdf4;   /* green-50  */
+	--color-surface-muted:   #f3f4f6;   /* gray-100  */
+	--color-fg:              #0a2e14;   /* deep forest text */
+	--color-fg-muted:        #4b7c5e;   /* muted forest */
+	--color-accent:          #16a34a;   /* green-600 */
+	--color-accent-dark:     #15803d;   /* green-700 — hover state */
+	--color-accent-foreground: #ffffff;
+	--color-border:          rgba(0, 0, 0, 0.09);
+	--color-destructive:     #dc2626;
+	--color-ring:            #16a34a;
+
+	/* The auth hero LEFT panel is always dark (forest green) for visual contrast */
+	--color-hero-bg:         #052e16;   /* green-950 */
+	--color-hero-surface:    rgba(255, 255, 255, 0.07);
+	--color-hero-border:     rgba(255, 255, 255, 0.1);
+
+	/* Status chips */
+	--color-success:  #16a34a;
+	--color-warning:  #d97706;
+	--color-pending:  #94a3b8;
+
+	/* EK-design motion curves */
+	--ease-out-strong:   cubic-bezier(0.23, 1, 0.32, 1);
+	--ease-in-out-strong: cubic-bezier(0.77, 0, 0.175, 1);
+	--ease-drawer:       cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+	html { color-scheme: light; }
+	body {
+		background-color: var(--color-bg);
+		color: var(--color-fg);
+		font-family: var(--font-body);
+		-webkit-font-smoothing: antialiased;
+	}
+	h1, h2, h3, h4, h5, h6 { font-family: var(--font-heading); }
+	::selection { background: var(--color-accent); color: white; }
+	@media (prefers-reduced-motion: reduce) {
+		*, *::before, *::after {
+			animation-duration: 0.01ms !important;
+			animation-iteration-count: 1 !important;
+			transition-duration: 0.01ms !important;
+			scroll-behavior: auto !important;
+		}
+	}
+}
+
+@layer utilities {
+	.tap-target { min-height: 44px; min-width: 44px; }
+
+	.btn-press {
+		transition:
+			transform 160ms var(--ease-out-strong),
+			background-color 160ms ease,
+			opacity 160ms ease;
+	}
+	.btn-press:active { transform: scale(0.97); }
+
+	/* Light card — white bg, subtle green-tinted border */
+	.card-surface {
+		background-color: var(--color-bg);
+		border: 1px solid var(--color-border);
+	}
+
+	/* Section card — green-50 bg */
+	.card-tinted {
+		background-color: var(--color-surface);
+		border: 1px solid var(--color-border);
+	}
+
+	.enter-fade {
+		animation: enterFade 320ms var(--ease-out-strong) both;
+	}
+	@keyframes enterFade {
+		from { opacity: 0; transform: translateY(8px) scale(0.98); }
+		to   { opacity: 1; transform: translateY(0) scale(1); }
+	}
+
+	.stagger-item {
+		opacity: 0;
+		animation: enterFade 360ms var(--ease-out-strong) forwards;
+	}
+}
