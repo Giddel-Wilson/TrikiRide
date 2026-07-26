@@ -16,12 +16,14 @@
 
 	let fullname = $state('');
 	let email = $state('');
+	let matricNo = $state('');
 	let phone = $state('');
 	let password = $state('');
 	let licenceNumber = $state('');
 	let plateNumber = $state('');
 	let tricycleModel = $state('');
 	let tricycleColour = $state('');
+	let profilePhotoUrl = $state('');
 
 	const stepLabels = $derived(
 		role === 'rider'
@@ -36,6 +38,9 @@
 	function goNext() {
 		if (currentStep === 1 && (!fullname || !phone || !email)) {
 			stepError = 'Fill in your name, phone, and email to continue.'; return;
+		}
+		if (currentStep === 1 && role === 'passenger' && !matricNo) {
+			stepError = 'Your matric number is required to verify you as a UNIPORT student.'; return;
 		}
 		if (currentStep === 1 && phone.replace(/\D/g, '').length < 7) {
 			stepError = 'Phone number must be at least 7 digits.'; return;
@@ -54,8 +59,8 @@
 		try {
 			const endpoint = role === 'passenger' ? '/api/auth/register/passenger' : '/api/auth/register/rider';
 			const payload = role === 'passenger'
-				? { fullname, email, phone, password }
-				: { fullname, email, phone, password, licenceNumber, plateNumber, tricycleModel, tricycleColour };
+				? { fullname, email, matricNo, phone, password }
+				: { fullname, email, phone, password, licenceNumber, plateNumber, tricycleModel, tricycleColour, profilePhotoUrl };
 			const res = await fetch(endpoint, {
 				method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
 			});
@@ -117,6 +122,10 @@
 								<InputGroup id="phone" label="Phone number" placeholder="080xxxxxxxx" bind:value={phone} required />
 							</div>
 							<InputGroup id="email" label="Email address" type="email" placeholder="you@uniport.edu.ng" bind:value={email} required />
+							{#if role === 'passenger'}
+								<InputGroup id="matricNo" label="Matric number" placeholder="U2022/5570155" bind:value={matricNo}
+									helper="Used to verify you're a registered UNIPORT student." required />
+							{/if}
 						{:else if currentStep === 2 && role === 'rider'}
 							<div class="grid grid-cols-2 gap-4">
 								<InputGroup id="licence" label="Licence no." placeholder="DL-00231" bind:value={licenceNumber} required />
@@ -124,6 +133,8 @@
 								<InputGroup id="model" label="Model" placeholder="TVS King" bind:value={tricycleModel} />
 								<InputGroup id="colour" label="Colour" placeholder="Yellow" bind:value={tricycleColour} />
 							</div>
+							<InputGroup id="photo" label="Profile photo URL" type="url" placeholder="https://…" bind:value={profilePhotoUrl}
+								helper="Optional — shown to passengers once they're matched with you." />
 						{:else}
 							<InputGroup id="password" label="Password" type="password" placeholder="••••••••"
 								bind:value={password} helper="Requires at least 6 characters." required minlength={6} />

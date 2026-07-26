@@ -3,6 +3,7 @@ import { db } from '$lib/server/db';
 import { riders, students } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
+import { logAdminAction } from '$lib/server/audit';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
@@ -15,6 +16,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 			email: true,
 			phone: true,
 			plateNumber: true,
+			profilePhotoUrl: true,
 			isVerified: true,
 			isOnline: true,
 			avgRating: true,
@@ -24,7 +26,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 		}
 	});
 	const allStudents = await db.query.students.findMany({
-		columns: { id: true, fullname: true, email: true, phone: true, regDate: true }
+		columns: { id: true, fullname: true, email: true, matricNo: true, phone: true, regDate: true }
 	});
 
 	return json({ riders: allRiders, students: allStudents });
@@ -43,9 +45,18 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 	if (!parsed.success) throw error(400, 'Invalid request.');
 	const { userType, id, action } = parsed.data;
 
+	const adminMeta = { adminId: locals.user.id, adminName: locals.user.fullname };
+
 	if (action === 'delete') {
-		if (userType === 'rider') await db.delete(riders).where(eq(riders.id, id));
-		else await db.delete(students).where(eq(students.id, id));
+		if (userType === 'rider') {
+			const existing = await db.query.riders.findFirst({ where: eq(riders.id, id) });
+			await db.delete(riders).where(eq(riders.id, id));
+			await logAdminAction({ ...adminMeta, action: 'delete_user', targetType: 'rider', targetId: id, details: existing?.fullname });
+		} else {
+			const existing = await db.query.students.findFirst({ where: eq(students.id, id) });
+			await db.delete(students).where(eq(students.id, id));
+			await logAdminAction({ ...adminMeta, action: 'delete_user', targetType: 'student', targetId: id, details: existing?.fullname });
+		}
 		return json({ ok: true });
 	}
 
@@ -55,6 +66,13 @@ export const PATCH: RequestHandler = async ({ request, locals }) => {
 			.set({ isVerified: action === 'verify' ? true : false })
 			.where(eq(riders.id, id))
 			.returning();
+		await logAdminAction({
+			...adminMeta,
+			action: action === 'verify' ? 'verify_rider' : 'suspend_rider',
+			targetType: 'rider',
+			targetId: id,
+			details: updated?.fullname
+		});
 		return json({ rider: updated });
 	}
 

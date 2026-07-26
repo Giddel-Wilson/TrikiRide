@@ -98,8 +98,9 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 			.set({ bookingStatus: 'completed', completedAt: new Date() })
 			.where(eq(bookings.id, params.id))
 			.returning();
+		const existingPayment = await db.query.payments.findFirst({ where: eq(payments.bookingId, params.id) });
 		await db.update(payments)
-			.set({ status: 'successful', method: paymentMethod ?? 'cash', paidAt: new Date() })
+			.set({ status: 'successful', method: paymentMethod ?? existingPayment?.method ?? 'cash', paidAt: new Date() })
 			.where(eq(payments.bookingId, params.id));
 		await db.update(riders)
 			.set({ totalTrips: sql`${riders.totalTrips} + 1`, totalEarnings: sql`${riders.totalEarnings} + ${booking.fare}` })
@@ -132,23 +133,42 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 	}
 
 	if (action === 'rate') {
-		if (locals.user.role !== 'passenger' || booking.studentId !== locals.user.id) throw error(403, 'Not your booking.');
 		if (booking.bookingStatus !== 'completed') throw error(409, 'You can only rate completed rides.');
 		if (!rating) throw error(400, 'Rating is required.');
-		const [updated] = await db
-			.update(bookings)
-			.set({ passengerRating: rating, passengerComment: comment })
-			.where(eq(bookings.id, params.id))
-			.returning();
-		if (booking.riderId) {
-			const rows = await db.query.bookings.findMany({ where: eq(bookings.riderId, booking.riderId) });
-			const rated = rows.filter((r) => r.passengerRating != null);
-			const avg = rated.reduce((s, r) => s + (r.passengerRating ?? 0), 0) / (rated.length || 1);
-			await db.update(riders).set({ avgRating: avg.toFixed(2) }).where(eq(riders.id, booking.riderId));
-			await pusher.trigger(`rider-${booking.riderId}`, 'booking-updated', { bookingId: params.id, status: 'rated' });
+
+		if (locals.user.role === 'passenger') {
+			if (booking.studentId !== locals.user.id) throw error(403, 'Not your booking.');
+			if (booking.passengerRating != null) throw error(409, 'You already rated this trip.');
+			const [updated] = await db
+				.update(bookings)
+				.set({ passengerRating: rating, passengerComment: comment })
+				.where(eq(bookings.id, params.id))
+				.returning();
+			if (booking.riderId) {
+				const rows = await db.query.bookings.findMany({ where: eq(bookings.riderId, booking.riderId) });
+				const rated = rows.filter((r) => r.passengerRating != null);
+				const avg = rated.reduce((s, r) => s + (r.passengerRating ?? 0), 0) / (rated.length || 1);
+				await db.update(riders).set({ avgRating: avg.toFixed(2) }).where(eq(riders.id, booking.riderId));
+				await pusher.trigger(`rider-${booking.riderId}`, 'booking-updated', { bookingId: params.id, status: 'rated' });
+			}
+			await pusher.trigger('admin', 'booking-updated', { bookingId: params.id });
+			return json({ booking: updated });
 		}
-		await pusher.trigger('admin', 'booking-updated', { bookingId: params.id });
-		return json({ booking: updated });
+
+		if (locals.user.role === 'rider') {
+			if (booking.riderId !== locals.user.id) throw error(403, 'Not your booking.');
+			if (booking.riderRating != null) throw error(409, 'You already rated this passenger.');
+			const [updated] = await db
+				.update(bookings)
+				.set({ riderRating: rating })
+				.where(eq(bookings.id, params.id))
+				.returning();
+			await pusher.trigger(`passenger-${booking.studentId}`, 'booking-updated', { bookingId: params.id, status: 'rated' });
+			await pusher.trigger('admin', 'booking-updated', { bookingId: params.id });
+			return json({ booking: updated });
+		}
+
+		throw error(403, 'Only passengers and riders can submit ratings.');
 	}
 
 	throw error(400, 'Unknown action.');

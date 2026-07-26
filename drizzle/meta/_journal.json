@@ -15,6 +15,13 @@
       "when": 1782548619065,
       "tag": "0001_colorful_wind_dancer",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785025398737,
+      "tag": "0002_add_matric_photo_audit_complaints_farerates",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CAMPUS_LOCATIONS, estimateFare, haversineKm } from '$lib/utils/fare';
+	import { estimateFare, haversineKm } from '$lib/utils/fare';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import TrikMap from '$lib/components/TrikMap.svelte';
 	import type { MapMarker } from '$lib/components/TrikMap.svelte';
@@ -10,8 +10,9 @@
 
 	let { data } = $props();
 
-	let pickup      = $state<string>(CAMPUS_LOCATIONS[0].name);
-	let destination = $state<string>(CAMPUS_LOCATIONS[2].name);
+	let pickup      = $state<string>(data.campusLocations[0].name);
+	let destination = $state<string>(data.campusLocations[2]?.name ?? data.campusLocations[0].name);
+	let paymentMethod = $state<'cash' | 'wallet' | 'transfer'>('cash');
 	let booking     = $state(false);
 
 	// Live rider tracking state
@@ -25,10 +26,30 @@
 	let reviewPage       = $state(1);
 	let reviewTotalPages = $state(1);
 
-	const pickupLoc    = $derived(CAMPUS_LOCATIONS.find(l => l.name === pickup)!);
-	const destLoc      = $derived(CAMPUS_LOCATIONS.find(l => l.name === destination)!);
+	// Report an issue
+	let reportingBookingId = $state<string | null>(null);
+	let reportSubject       = $state('');
+	let reportDescription   = $state('');
+	let submittingReport    = $state(false);
+	async function submitReport() {
+		if (!reportingBookingId || !reportSubject || !reportDescription) return;
+		submittingReport = true;
+		try {
+			const res = await fetch('/api/complaints', {
+				method: 'POST', headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ bookingId: reportingBookingId, subject: reportSubject, description: reportDescription })
+			});
+			if (res.ok) {
+				pushToast('Report submitted — an admin will review it.', 'success');
+				reportingBookingId = null; reportSubject = ''; reportDescription = '';
+			} else { pushToast('Could not submit report.', 'error'); }
+		} finally { submittingReport = false; }
+	}
+
+	const pickupLoc    = $derived(data.campusLocations.find((l: any) => l.name === pickup)!);
+	const destLoc      = $derived(data.campusLocations.find((l: any) => l.name === destination)!);
 	const distanceKm   = $derived(pickupLoc && destLoc ? haversineKm(pickupLoc.lat, pickupLoc.lng, destLoc.lat, destLoc.lng) : 0);
-	const fare         = $derived(estimateFare(distanceKm));
+	const fare         = $derived(estimateFare(distanceKm, data.fareSettings.baseFare, data.fareSettings.ratePerKm));
 	const sameLocation = $derived(pickup === destination);
 
 	const activeBooking = $derived(
@@ -113,6 +134,7 @@
 	onDestroy(stopPolling);
 
 	// Pusher real-time
+	let pusherCleanup: (() => void) | undefined;
 	onMount(async () => {
 		const pusherClient = await getPusher();
 		if (!pusherClient) return;
@@ -120,8 +142,9 @@
 		const channel = pusherClient.subscribe(`passenger-${data.user.id}`);
 		channel.bind('booking-updated', () => invalidateAll());
 
-		return () => pusherClient.unsubscribe(`passenger-${data.user.id}`);
+		pusherCleanup = () => pusherClient.unsubscribe(`passenger-${data.user.id}`);
 	});
+	onDestroy(() => pusherCleanup?.());
 
 	// Reviews
 	async function loadReviews(riderId: string, page = 1) {
@@ -143,7 +166,8 @@
 				method: 'POST', headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({
 					pickupLocation: pickupLoc.name, pickupLat: pickupLoc.lat, pickupLng: pickupLoc.lng,
-					destination:    destLoc.name,   destinationLat: destLoc.lat, destinationLng: destLoc.lng
+					destination:    destLoc.name,   destinationLat: destLoc.lat, destinationLng: destLoc.lng,
+					paymentMethod
 				})
 			});
 			const result = await res.json();
@@ -224,9 +248,14 @@
 
 				{#if activeBooking.rider}
 					<div class="mt-4 flex items-center gap-3 rounded-xl bg-[var(--color-surface)] p-3">
-						<div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 font-heading text-sm font-semibold text-[var(--color-accent)]">
-							{activeBooking.rider.fullname.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
-						</div>
+						{#if activeBooking.rider.profilePhotoUrl}
+							<img src={activeBooking.rider.profilePhotoUrl} alt={activeBooking.rider.fullname}
+								class="h-10 w-10 shrink-0 rounded-full object-cover" />
+						{:else}
+							<div class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 font-heading text-sm font-semibold text-[var(--color-accent)]">
+								{activeBooking.rider.fullname.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
+							</div>
+						{/if}
 						<div class="flex-1 min-w-0">
 							<p class="text-sm font-semibold text-[var(--color-fg)] truncate">{activeBooking.rider.fullname}</p>
 							<p class="text-xs text-[var(--color-fg-muted)]">{activeBooking.rider.plateNumber} · ★ {activeBooking.rider.avgRating}</p>
@@ -237,7 +266,7 @@
 					</div>
 
 					<!-- Reviews toggle -->
-					<button onclick={() => showReviews ? (showReviews = false) : loadReviews(activeBooking.rider.id)}
+					<button onclick={() => showReviews ? (showReviews = false) : loadReviews(activeBooking.rider!.id)}
 						class="mt-3 w-full text-center text-xs font-medium text-[var(--color-accent)] hover:underline">
 						{showReviews ? 'Hide reviews' : `See reviews for ${activeBooking.rider.fullname.split(' ')[0]}`}
 					</button>
@@ -262,14 +291,14 @@
 									<div class="flex items-center justify-between pt-1">
 										<button
 											disabled={reviewPage <= 1}
-											onclick={() => loadReviews(activeBooking.rider.id, reviewPage - 1)}
+											onclick={() => loadReviews(activeBooking.rider!.id, reviewPage - 1)}
 											class="text-xs font-medium text-[var(--color-accent)] disabled:opacity-40 hover:underline">
 											← Prev
 										</button>
 										<p class="text-xs text-[var(--color-fg-muted)]">Page {reviewPage} of {reviewTotalPages}</p>
 										<button
 											disabled={reviewPage >= reviewTotalPages}
-											onclick={() => loadReviews(activeBooking.rider.id, reviewPage + 1)}
+											onclick={() => loadReviews(activeBooking.rider!.id, reviewPage + 1)}
 											class="text-xs font-medium text-[var(--color-accent)] disabled:opacity-40 hover:underline">
 											Next →
 										</button>
@@ -317,13 +346,13 @@
 					<div>
 						<label for="pickup" class="mb-1.5 block text-xs font-medium text-[var(--color-fg-muted)]">Pickup location</label>
 						<select id="pickup" bind:value={pickup} class="tap-target w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3.5 py-2.5 text-sm text-[var(--color-fg)] outline-none focus:border-[var(--color-accent)]">
-							{#each CAMPUS_LOCATIONS as loc (loc.name)}<option value={loc.name}>{loc.name}</option>{/each}
+							{#each data.campusLocations as loc (loc.name)}<option value={loc.name}>{loc.name}</option>{/each}
 						</select>
 					</div>
 					<div>
 						<label for="destination" class="mb-1.5 block text-xs font-medium text-[var(--color-fg-muted)]">Destination</label>
 						<select id="destination" bind:value={destination} class="tap-target w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3.5 py-2.5 text-sm text-[var(--color-fg)] outline-none focus:border-[var(--color-accent)]">
-							{#each CAMPUS_LOCATIONS as loc (loc.name)}<option value={loc.name}>{loc.name}</option>{/each}
+							{#each data.campusLocations as loc (loc.name)}<option value={loc.name}>{loc.name}</option>{/each}
 						</select>
 					</div>
 				</div>
@@ -336,6 +365,20 @@
 							<p class="text-xs text-[var(--color-fg-muted)]">Estimated fare · {distanceKm.toFixed(1)} km</p>
 							<p class="font-heading text-lg font-semibold text-[var(--color-accent)]">₦{fare}</p>
 						</div>
+					</div>
+
+					<div class="mt-3">
+						<span class="mb-1.5 block text-xs font-medium text-[var(--color-fg-muted)]">Pay with</span>
+						<div class="grid grid-cols-3 gap-2">
+							{#each [['cash', 'Cash'], ['transfer', 'Transfer'], ['wallet', 'Wallet']] as [value, label] (value)}
+								<button type="button" onclick={() => (paymentMethod = value as typeof paymentMethod)}
+									class="btn-press tap-target rounded-lg border py-2 text-xs font-medium transition-colors
+										{paymentMethod === value ? 'border-[var(--color-accent)] bg-green-50 text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-fg-muted)]'}">
+									{label}
+								</button>
+							{/each}
+						</div>
+						<p class="mt-1.5 text-[11px] text-[var(--color-fg-muted)]">Confirm payment with your rider in person — TrikRide doesn't process wallet or transfer payments yet.</p>
 					</div>
 				{/if}
 

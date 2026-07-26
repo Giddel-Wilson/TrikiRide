@@ -1,7 +1,7 @@
 <script lang="ts">
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import { invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { getPusher } from '$lib/pusher';
 
 	let { data } = $props();
@@ -14,6 +14,7 @@
 		{ label: 'Revenue today',   value: `₦${data.revenueToday}` }
 	]);
 
+	let cleanup: (() => void) | undefined;
 	onMount(async () => {
 		const pusherClient = await getPusher();
 		if (!pusherClient) return;
@@ -21,8 +22,9 @@
 		const channel = pusherClient.subscribe('admin');
 		channel.bind('booking-updated', () => invalidateAll());
 
-		return () => pusherClient.unsubscribe('admin');
+		cleanup = () => pusherClient.unsubscribe('admin');
 	});
+	onDestroy(() => cleanup?.());
 </script>
 
 <svelte:head><title>Admin dashboard — TrikRide</title></svelte:head>

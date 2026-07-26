@@ -15,6 +15,7 @@ const schema = z.object({
 	plateNumber: z.string().min(2).max(20),
 	tricycleModel: z.string().max(100).optional(),
 	tricycleColour: z.string().max(50).optional(),
+	profilePhotoUrl: z.string().url().max(500).optional().or(z.literal('')),
 	password: z.string().min(6)
 });
 
@@ -25,6 +26,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 });
 	}
 	const { password, ...rest } = parsed.data;
+	if (rest.profilePhotoUrl === '') rest.profilePhotoUrl = undefined;
 
 	const existingEmail = await db.query.riders.findFirst({ where: eq(riders.email, rest.email) });
 	if (existingEmail) {

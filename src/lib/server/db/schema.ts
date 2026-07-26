@@ -9,10 +9,14 @@ export const bookingStatusEnum = pgEnum('booking_status', [
 ]);
 export const paymentMethodEnum = pgEnum('payment_method', ['cash', 'wallet', 'transfer']);
 export const paymentStatusEnum = pgEnum('payment_status', ['pending', 'successful', 'failed']);
+export const complainantTypeEnum = pgEnum('complainant_type', ['student', 'rider']);
+export const complaintStatusEnum = pgEnum('complaint_status', ['open', 'resolved', 'dismissed']);
 
 export const students = pgTable('students', {
 	id: uuid('id').primaryKey().defaultRandom(),
 	fullname: varchar('fullname', { length: 100 }).notNull(),
+	// UNIPORT matriculation number, e.g. "U2022/5570155" — ties an account to a verified student (Chapter 3, 3.4.1)
+	matricNo: varchar('matric_no', { length: 20 }).notNull().unique(),
 	email: varchar('email', { length: 100 }).notNull().unique(),
 	passwordHash: varchar('password_hash', { length: 255 }).notNull(),
 	phone: varchar('phone', { length: 15 }).notNull(),
@@ -29,6 +33,9 @@ export const riders = pgTable('riders', {
 	plateNumber: varchar('plate_number', { length: 20 }).notNull().unique(),
 	tricycleModel: varchar('tricycle_model', { length: 100 }),
 	tricycleColour: varchar('tricycle_colour', { length: 50 }),
+	// Optional photo URL shown to passengers when matched (Chapter 3, 3.3.1-A-V) — no upload storage is
+	// configured for this project, so riders paste a hosted image URL rather than uploading a file directly.
+	profilePhotoUrl: varchar('profile_photo_url', { length: 500 }),
 	passwordHash: varchar('password_hash', { length: 255 }).notNull(),
 	isVerified: boolean('is_verified').notNull().default(false),
 	isOnline: boolean('is_online').notNull().default(false),
@@ -97,6 +104,43 @@ export const bookingDeclines = pgTable('booking_declines', {
 	declinedAt: timestamp('declined_at', { withTimezone: true }).notNull().defaultNow()
 });
 
+// Audit trail of administrative actions (Chapter 3, 3.3.1-C-vi)
+export const adminAuditLog = pgTable('admin_audit_log', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	adminId: uuid('admin_id').references(() => admins.id, { onDelete: 'set null' }),
+	adminName: varchar('admin_name', { length: 100 }).notNull(),
+	action: varchar('action', { length: 60 }).notNull(),
+	targetType: varchar('target_type', { length: 30 }).notNull(),
+	targetId: varchar('target_id', { length: 100 }),
+	details: text('details'),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow()
+});
+
+// Passenger/rider complaints & disputes, reviewed and resolved by an admin (Chapter 3, 3.3.1-C-v)
+export const complaints = pgTable('complaints', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	bookingId: uuid('booking_id').references(() => bookings.id, { onDelete: 'set null' }),
+	filedByType: complainantTypeEnum('filed_by_type').notNull(),
+	filedById: uuid('filed_by_id').notNull(),
+	filedByName: varchar('filed_by_name', { length: 100 }).notNull(),
+	subject: varchar('subject', { length: 150 }).notNull(),
+	description: text('description').notNull(),
+	status: complaintStatusEnum('status').notNull().default('open'),
+	adminResponse: text('admin_response'),
+	createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+	resolvedAt: timestamp('resolved_at', { withTimezone: true })
+});
+
+// Single-row, admin-configurable fare settings — replaces the hardcoded constants in utils/fare.ts
+// (Chapter 3, 3.3.1-C-ii: "set and update the base fare and per-kilometre rate")
+export const fareSettings = pgTable('fare_settings', {
+	id: varchar('id', { length: 20 }).primaryKey().default('default'),
+	baseFare: numeric('base_fare', { precision: 8, scale: 2 }).notNull().default('200.00'),
+	ratePerKm: numeric('rate_per_km', { precision: 8, scale: 2 }).notNull().default('80.00'),
+	updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+	updatedBy: uuid('updated_by').references(() => admins.id, { onDelete: 'set null' })
+});
+
 export const studentsRelations = relations(students, ({ many }) => ({ bookings: many(bookings) }));
 export const ridersRelations   = relations(riders,   ({ many }) => ({ bookings: many(bookings) }));
 export const bookingsRelations = relations(bookings, ({ one, many }) => ({
@@ -112,4 +156,8 @@ export const bookingDeclinesRelations = relations(bookingDeclines, ({ one }) => 
 }));
 export const paymentsRelations = relations(payments, ({ one }) => ({
 	booking: one(bookings, { fields: [payments.bookingId], references: [bookings.id] })
+}));
+
+export const complaintsRelations = relations(complaints, ({ one }) => ({
+	booking: one(bookings, { fields: [complaints.bookingId], references: [bookings.id] })
 }));

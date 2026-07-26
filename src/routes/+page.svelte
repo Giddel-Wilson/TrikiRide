@@ -29,8 +29,8 @@
 				<a href="#fares" class="transition hover:text-[var(--color-fg)]">Fares</a>
 			</nav>
 			<div class="flex items-center gap-3">
-				<a href="/login" class="btn-press flex items-center tap-target rounded-lg px-4 py-2 text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">Log in</a>
-				<a href="/register" class="btn-press flex items-center tap-target rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--color-accent-dark)]">Get started</a>
+				<a href="/login" class="btn-press tap-target rounded-lg px-4 py-2 text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] flex justify-center items-center">Log in</a>
+				<a href="/register" class="btn-press tap-target rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold flex justify-center items-center text-white hover:bg-[var(--color-accent-dark)]">Get started</a>
 			</div>
 		</div>
 	</header>

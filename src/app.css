@@ -1,9 +1,5 @@
-@import 'tailwindcss';
-
-/* ---------------------------------------------------------------------- */
-/* Fonts (Tech Startup pairing: Space Grotesk headings / DM Sans body)    */
-/* ---------------------------------------------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
 
 @theme {
 	--font-heading: 'Space Grotesk', sans-serif;
@@ -13,7 +9,7 @@
 	--color-bg:              #ffffff;
 	--color-surface:         #f0fdf4;   /* green-50  */
 	--color-surface-muted:   #f3f4f6;   /* gray-100  */
-	--color-fg:              #0a2e14;   /* deep forest text */
+	--color-fg:              #15803d;   /* deep forest text */
 	--color-fg-muted:        #4b7c5e;   /* muted forest */
 	--color-accent:          #16a34a;   /* green-600 */
 	--color-accent-dark:     #15803d;   /* green-700 — hover state */

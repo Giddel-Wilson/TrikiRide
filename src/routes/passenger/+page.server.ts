@@ -1,6 +1,8 @@
 import { db } from '$lib/server/db';
-import { bookings } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { bookings, locations } from '$lib/server/db/schema';
+import { eq, desc, asc } from 'drizzle-orm';
+import { getFareSettings } from '$lib/server/settings';
+import { CAMPUS_LOCATIONS } from '$lib/utils/fare';
 import type { PageServerLoad } from './$types';
 
 export const load: PageServerLoad = async ({ locals }) => {
@@ -16,10 +18,17 @@ export const load: PageServerLoad = async ({ locals }) => {
 					plateNumber: true,
 					tricycleModel: true,
 					tricycleColour: true,
+					profilePhotoUrl: true,
 					avgRating: true
 				}
 			}
 		}
 	});
-	return { bookings: rows };
+
+	const dbLocations = await db.query.locations.findMany({ orderBy: asc(locations.name) });
+	const campusLocations = dbLocations.length > 0
+		? dbLocations.map((l) => ({ name: l.name, lat: Number(l.lat), lng: Number(l.lng) }))
+		: CAMPUS_LOCATIONS;
+
+	return { bookings: rows, campusLocations, fareSettings: await getFareSettings() };
 };

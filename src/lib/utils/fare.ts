@@ -1,4 +1,6 @@
-// Fare engine — base fare + per-km rate, matching admin-configurable settings (Chapter 3, 3.3.1-C)
+// Fare engine — base fare + per-km rate. These constants are only the *fallback* default (used for the
+// client-side estimate before the page's admin-configured rates have loaded); the source of truth is the
+// `fare_settings` table, editable from /admin/settings (Chapter 3, 3.3.1-C-ii).
 export const BASE_FARE = 200; // ₦
 export const RATE_PER_KM = 80; // ₦ per kilometre
 
@@ -13,8 +15,12 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
 	return R * c;
 }
 
-export function estimateFare(distanceKm: number): number {
-	const fare = BASE_FARE + distanceKm * RATE_PER_KM;
+export function estimateFare(
+	distanceKm: number,
+	baseFare: number = BASE_FARE,
+	ratePerKm: number = RATE_PER_KM
+): number {
+	const fare = baseFare + distanceKm * ratePerKm;
 	// round to nearest 10 naira
 	return Math.round(fare / 10) * 10;
 }
