@@ -53,7 +53,7 @@
 
 	<div class="flex flex-1 flex-col items-center overflow-y-auto bg-[var(--color-bg)] px-4 py-12 sm:px-12 lg:justify-center lg:px-16 lg:py-10 xl:px-24">
 		<div class="enter-fade w-full max-w-xl space-y-7">
-			<a href="/" class="mb-2 flex justify-center lg:hidden"><Logo /></a>
+			<a href="/" class="mb-2 flex justify-start lg:hidden"><Logo /></a>
 
 			<div>
 				<h2 class="font-heading text-3xl font-medium tracking-tight text-[var(--color-fg)]">Log in to TrikRide</h2>
