@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Logo from '$lib/components/Logo.svelte';
+	import Triki from '$lib/assets/triki.jpeg';
 
 	const steps = [
 		{ title: 'Set pickup & destination', text: 'Pick from campus locations like Abuja Park or Faculty of Science — fare is calculated instantly.' },
@@ -70,35 +71,9 @@
 				</div>
 			</div>
 
-			<!-- Booking card mockup -->
-			<div class="enter-fade card-surface relative rounded-2xl p-6 shadow-lg" style="animation-delay: 80ms">
-				<div class="mb-5 flex items-center justify-between">
-					<p class="font-heading text-sm font-semibold text-[var(--color-fg)]">Book a ride</p>
-					<span class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">12 riders online</span>
-				</div>
-				<div class="space-y-3">
-					<div class="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3">
-						<span class="h-2 w-2 rounded-full bg-green-500"></span>
-						<div>
-							<p class="text-xs text-[var(--color-fg-muted)]">Pickup</p>
-							<p class="text-sm text-[var(--color-fg)]">Abuja Park</p>
-						</div>
-					</div>
-					<div class="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3">
-						<span class="h-2 w-2 rounded-full bg-[var(--color-accent)]"></span>
-						<div>
-							<p class="text-xs text-[var(--color-fg-muted)]">Destination</p>
-							<p class="text-sm text-[var(--color-fg)]">Faculty of Science</p>
-						</div>
-					</div>
-				</div>
-				<div class="mt-4 flex items-center justify-between rounded-xl bg-green-50 px-4 py-3">
-					<span class="text-sm text-[var(--color-fg-muted)]">Estimated fare</span>
-					<span class="font-heading text-lg font-semibold text-[var(--color-accent)]">₦440</span>
-				</div>
-				<button class="btn-press tap-target mt-4 w-full rounded-xl bg-[var(--color-accent)] py-3 text-sm font-semibold text-white hover:bg-[var(--color-accent-dark)]">
-					Confirm booking
-				</button>
+			<!-- TrikiRide side image-->
+			<div class="enter-fade backdrop-blur-xl relative rounded-2xl" style="animation-delay: 80ms">
+				<img src={Triki} alt="TrikRide booking card mockup" class="rounded-xl" />
 			</div>
 		</div>
 	</section>
