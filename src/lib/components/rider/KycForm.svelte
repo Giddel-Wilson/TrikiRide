@@ -128,7 +128,10 @@
 			canvas.height = videoEl.videoHeight;
 		}
 		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		const x = (index: number) => (1 - landmarks[index].x) * canvas.width;
+		// The video and canvas layers are both mirrored in CSS for the selfie preview.
+		// Keep model coordinates unflipped here so the overlay receives the same single
+		// CSS mirror as the video instead of being mirrored twice.
+		const x = (index: number) => landmarks[index].x * canvas.width;
 		const y = (index: number) => landmarks[index].y * canvas.height;
 		ctx.lineWidth = 0.65;
 		ctx.strokeStyle = locked ? 'rgba(74, 222, 128, .43)' : 'rgba(45, 212, 191, .35)';
