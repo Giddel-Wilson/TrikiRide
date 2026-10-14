@@ -29,6 +29,13 @@
       "when": 1790467200000,
       "tag": "0003_rider_serial_and_kyc",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791954116926,
+      "tag": "0004_rider_plate_or_serial",
+      "breakpoints": true
     }
   ]
 }

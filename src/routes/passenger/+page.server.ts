@@ -15,6 +15,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 					id: true,
 					fullname: true,
 					phone: true,
+					plateNumber: true,
 					serialNumber: true,
 					tricycleModel: true,
 					tricycleColour: true,

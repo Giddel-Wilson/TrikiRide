@@ -12,7 +12,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 		where: eq(riders.id, locals.user.id),
 		columns: {
 			id: true, fullname: true, isOnline: true, isVerified: true,
-			avgRating: true, totalTrips: true, totalEarnings: true, serialNumber: true
+			avgRating: true, totalTrips: true, totalEarnings: true, serialNumber: true, plateNumber: true
 		}
 	});
 	const verification = await db.query.riderVerificationRequests.findFirst({

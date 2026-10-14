@@ -3,6 +3,9 @@
 	import StepItem from '$lib/components/auth/StepItem.svelte';
 	import InputGroup from '$lib/components/auth/InputGroup.svelte';
 	import Logo from '$lib/components/Logo.svelte';
+	import { genUploader } from 'uploadthing/client';
+	import type { OurFileRouter } from '$lib/server/uploadthing';
+	import { onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -19,10 +22,22 @@
 	let matricNo = $state('');
 	let phone = $state('');
 	let password = $state('');
-	let serialNumber = $state('');
+	let vehicleIdentifierType = $state<'plate' | 'serial' | 'na'>('na');
+	let vehicleIdentifier = $state('');
 	let tricycleModel = $state('');
 	let tricycleColour = $state('');
 	let profilePhotoUrl = $state('');
+	let profilePhotoFile = $state<File | null>(null);
+	let profilePhotoPreview = $state('');
+	const { uploadFiles: uploadRegistrationFiles } = genUploader<OurFileRouter>();
+	onDestroy(() => { if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview); });
+
+	function selectProfilePhoto(event: Event) {
+		if (profilePhotoPreview) URL.revokeObjectURL(profilePhotoPreview);
+		profilePhotoFile = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
+		profilePhotoPreview = profilePhotoFile ? URL.createObjectURL(profilePhotoFile) : '';
+		profilePhotoUrl = '';
+	}
 
 	const stepLabels = $derived(
 		role === 'rider'
@@ -33,6 +48,7 @@
 
 	function switchRole(next: 'passenger' | 'rider') {
 		role = next; currentStep = 1; stepError = '';
+		if (next === 'rider') { vehicleIdentifierType = 'na'; vehicleIdentifier = ''; }
 	}
 	function goNext() {
 		if (currentStep === 1 && (!fullname || !phone || !email)) {
@@ -44,8 +60,8 @@
 		if (currentStep === 1 && phone.replace(/\D/g, '').length < 7) {
 			stepError = 'Phone number must be at least 7 digits.'; return;
 		}
-		if (currentStep === 2 && role === 'rider' && !serialNumber) {
-			stepError = 'Keke serial number is required.'; return;
+		if (currentStep === 2 && role === 'rider' && vehicleIdentifierType !== 'na' && !vehicleIdentifier.trim()) {
+			stepError = 'Enter the selected vehicle number or choose N/A.'; return;
 		}
 		stepError = ''; currentStep += 1;
 	}
@@ -56,16 +72,23 @@
 		if (password.length < 6) { stepError = 'Password must be at least 6 characters.'; return; }
 		errorMsg = ''; loading = true;
 		try {
+			if (role === 'rider' && profilePhotoFile && !profilePhotoUrl) {
+				if (profilePhotoFile.size > 4 * 1024 * 1024) throw new Error('Choose a profile photo smaller than 4 MB.');
+				const uploaded = await uploadRegistrationFiles('riderProfilePhoto', { files: [profilePhotoFile] });
+				profilePhotoUrl = uploaded[0].ufsUrl;
+			}
 			const endpoint = role === 'passenger' ? '/api/auth/register/passenger' : '/api/auth/register/rider';
 			const payload = role === 'passenger'
 				? { fullname, email, matricNo, phone, password }
-				: { fullname, email, phone, password, serialNumber, tricycleModel, tricycleColour, profilePhotoUrl };
+				: { fullname, email, phone, password, vehicleIdentifierType, vehicleIdentifier, tricycleModel, tricycleColour, profilePhotoUrl };
 			const res = await fetch(endpoint, {
 				method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
 			});
 			const data = await res.json();
 			if (!res.ok) { errorMsg = data.error ?? 'Something went wrong.'; return; }
 			await goto(role === 'passenger' ? '/passenger' : '/rider');
+		} catch (cause) {
+			errorMsg = cause instanceof Error ? cause.message : 'Could not upload your profile photo. Please try again.';
 		} finally { loading = false; }
 	}
 </script>
@@ -127,12 +150,34 @@
 							{/if}
 						{:else if currentStep === 2 && role === 'rider'}
 							<div class="grid grid-cols-2 gap-4">
-				<InputGroup id="serial" label="Keke serial number" placeholder="e.g. TRK-00231" bind:value={serialNumber} required />
+								<div class="col-span-2">
+									<label for="vehicleIdentifierType" class="mb-1.5 block text-sm font-medium text-[var(--color-fg)]">Vehicle number type</label>
+									<div class="flex gap-3">
+										<div class="relative w-40 shrink-0">
+											<select id="vehicleIdentifierType" bind:value={vehicleIdentifierType} onchange={() => vehicleIdentifier = ''} class="h-11 w-full appearance-none rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] py-2 pl-4 pr-10 text-sm text-[var(--color-fg)] focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20">
+												<option value="na">N/A</option>
+												<option value="plate">Plate number</option>
+												<option value="serial">Serial number</option>
+											</select>
+											<svg aria-hidden="true" class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-fg-muted)]" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /></svg>
+										</div>
+										<input id="vehicleIdentifier" type="text" bind:value={vehicleIdentifier} disabled={vehicleIdentifierType === 'na'} required={vehicleIdentifierType !== 'na'} placeholder={vehicleIdentifierType === 'plate' ? 'e.g. PHC-234-KK' : vehicleIdentifierType === 'serial' ? 'e.g. TRK-00231' : 'No number provided'} class="h-11 min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-muted)]/50 focus:border-[var(--color-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/20 disabled:opacity-60" />
+									</div>
+									<p class="mt-1.5 text-xs text-[var(--color-fg-muted)]">If you choose N/A, add your plate or serial number during driver verification before an admin can approve you.</p>
+								</div>
 								<InputGroup id="model" label="Model" placeholder="TVS King" bind:value={tricycleModel} />
 								<InputGroup id="colour" label="Colour" placeholder="Yellow" bind:value={tricycleColour} />
 							</div>
-							<InputGroup id="photo" label="Profile photo URL" type="url" placeholder="https://…" bind:value={profilePhotoUrl}
-								helper="Optional — shown to passengers once they're matched with you." />
+							<div>
+								<label for="profilePhoto" class="mb-1.5 block text-sm font-medium text-[var(--color-fg)]">Profile photo</label>
+								<div class="flex items-center gap-3">
+									<input id="profilePhoto" type="file" accept="image/*" onchange={selectProfilePhoto} class="min-w-0 flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-2 text-sm text-[var(--color-fg)] file:mr-3 file:rounded-lg file:border-0 file:bg-white file:px-3 file:py-1.5 file:text-sm file:font-medium" />
+									{#if profilePhotoFile}
+										<img src={profilePhotoPreview} alt="Selected profile preview" class="h-12 w-12 rounded-full border border-[var(--color-border)] object-cover" />
+									{/if}
+								</div>
+								<p class="mt-1.5 text-xs text-[var(--color-fg-muted)]">Optional. Upload a photo from your device (max 4 MB); it will be shown to passengers after matching.</p>
+							</div>
 						{:else}
 							<InputGroup id="password" label="Password" type="password" placeholder="••••••••"
 								bind:value={password} helper="Requires at least 6 characters." required minlength={6} />

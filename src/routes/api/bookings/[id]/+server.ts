@@ -26,6 +26,8 @@ export const PATCH: RequestHandler = async ({ request, params, locals }) => {
 
 	if (action === 'accept') {
     if (locals.user.role !== 'rider') throw error(403, 'Only riders can accept rides.');
+    const rider = await db.query.riders.findFirst({ where: eq(riders.id, locals.user.id), columns: { isVerified: true } });
+    if (!rider?.isVerified) throw error(403, 'Your driver verification must be approved before you can accept rides.');
 
     // Atomic conditional update — only succeeds if booking is still pending with no rider
     const [updated] = await db

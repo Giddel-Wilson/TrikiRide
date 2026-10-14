@@ -9,16 +9,30 @@
 	let riderReviews     = $state<Record<string, any[]>>({});
 	let reviewPages      = $state<Record<string, number>>({});
 	let reviewTotalPages = $state<Record<string, number>>({});
+	let pendingRiderAction = $state<{ id: string; action: 'suspend' | 'delete'; name: string } | null>(null);
+	let actionBusy = $state(false);
 
 	async function riderAction(id: string, action: 'suspend' | 'delete') {
-		const res = await fetch('/api/admin/users', {
-			method: 'PATCH', headers: { 'content-type': 'application/json' },
-			body: JSON.stringify({ userType: 'rider', id, action })
-		});
-		if (res.ok) {
-			pushToast(action === 'suspend' ? 'Rider suspended' : 'Rider removed', 'success');
-			await invalidateAll();
-		} else { pushToast('Action failed.', 'error'); }
+		actionBusy = true;
+		try {
+			const res = await fetch('/api/admin/users', {
+				method: 'PATCH', headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ userType: 'rider', id, action })
+			});
+			if (res.ok) {
+				pushToast(action === 'suspend' ? 'Rider suspended' : 'Rider removed', 'success');
+				pendingRiderAction = null;
+				await invalidateAll();
+			} else { pushToast('Action failed.', 'error'); }
+		} catch {
+			pushToast('Action failed. Check your connection and try again.', 'error');
+		} finally {
+			actionBusy = false;
+		}
+	}
+
+	function confirmRiderAction(id: string, action: 'suspend' | 'delete', name: string) {
+		pendingRiderAction = { id, action, name };
 	}
 
 	async function reviewVerification(requestId: string, decision: 'approved' | 'declined') {
@@ -51,15 +65,21 @@
 
 {#if data.requests.length}
 	<section class="card-surface mt-5 rounded-2xl p-5 shadow-sm">
-		<h2 class="font-heading text-base font-semibold">KYC requests ({data.requests.length})</h2>
+		<h2 class="font-heading text-base font-semibold">Rider KYC records ({data.requests.length})</h2>
+		<p class="mt-1 text-xs text-[var(--color-fg-muted)]">Submitted identity documents and face scans remain available here for admin reference.</p>
 		<div class="mt-3 space-y-3">
 			{#each data.requests as request (request.id)}
 				<div class="flex flex-wrap items-center gap-3 border-t border-[var(--color-border)] pt-3">
-					<div class="min-w-48 flex-1"><p class="font-medium">{request.fullname}</p><p class="text-xs text-[var(--color-fg-muted)]">{request.email} · Serial {request.serialNumber} · {request.documentType === 'nin' ? 'NIN' : 'Driver’s licence'}</p></div>
+					<div class="min-w-48 flex-1"><p class="font-medium">{request.fullname}</p><p class="text-xs text-[var(--color-fg-muted)]">{request.email} · {request.plateNumber ? `Plate ${request.plateNumber}` : request.serialNumber ? `Serial ${request.serialNumber}` : 'Vehicle number missing'} · {request.documentType === 'nin' ? 'NIN' : 'Driver’s licence'} · Submitted {new Date(request.createdAt).toLocaleDateString('en-NG')}</p>
+						{#if request.reviewNotes}<p class="mt-1 text-xs text-[var(--color-fg-muted)]">Review note: {request.reviewNotes}</p>{/if}
+					</div>
+					<span class="rounded-full px-2 py-1 text-xs font-medium {request.status === 'approved' ? 'bg-green-100 text-green-700' : request.status === 'declined' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">{request.status === 'approved' ? 'Approved' : request.status === 'declined' ? 'Declined' : 'Pending review'}</span>
 					<a class="text-sm text-[var(--color-accent)] underline" href="/api/admin/verification?requestId={request.id}&file=document" target="_blank" rel="noreferrer">View ID</a>
 					<a class="text-sm text-[var(--color-accent)] underline" href="/api/admin/verification?requestId={request.id}&file=face" target="_blank" rel="noreferrer">View face scan</a>
-					<button onclick={() => reviewVerification(request.id, 'approved')} class="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white">Approve</button>
-					<button onclick={() => reviewVerification(request.id, 'declined')} class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">Decline</button>
+					{#if request.status === 'pending'}
+						<button onclick={() => reviewVerification(request.id, 'approved')} class="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white">Approve</button>
+						<button onclick={() => reviewVerification(request.id, 'declined')} class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600">Decline</button>
+					{/if}
 				</div>
 			{/each}
 		</div>
@@ -81,7 +101,7 @@
 			<thead>
 				<tr class="text-xs text-[var(--color-fg-muted)]">
 					<th class="pb-2 font-medium">Name</th>
-					<th class="pb-2 font-medium">Serial</th>
+					<th class="pb-2 font-medium">Vehicle number</th>
 					<th class="pb-2 font-medium">Trips & Rating</th>
 					<th class="pb-2 font-medium">Earnings</th>
 					<th class="pb-2 font-medium">Status</th>
@@ -92,7 +112,7 @@
 				{#each data.riders as r (r.id)}
 					<tr class="border-t border-[var(--color-border)]">
 						<td class="py-2.5 text-[var(--color-fg)]">{r.fullname}</td>
-						<td class="py-2.5 text-[var(--color-fg-muted)]">{r.serialNumber}</td>
+						<td class="py-2.5 text-[var(--color-fg-muted)]">{r.plateNumber ? `Plate ${r.plateNumber}` : r.serialNumber ? `Serial ${r.serialNumber}` : 'Not provided'}</td>
 						<td class="py-2.5">
 							<button onclick={() => toggleReviews(r.id)}
 								class="text-xs font-medium text-[var(--color-accent)] hover:underline">
@@ -108,9 +128,9 @@
 						<td class="py-2.5">
 							<div class="flex gap-2">
 								{#if r.isVerified}
-									<button onclick={() => riderAction(r.id, 'suspend')} class="btn-press tap-target rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">Suspend</button>
+									<button onclick={() => confirmRiderAction(r.id, 'suspend', r.fullname)} class="btn-press tap-target rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)]">Suspend</button>
 								{/if}
-								<button onclick={() => riderAction(r.id, 'delete')} class="btn-press tap-target rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Remove</button>
+								<button onclick={() => confirmRiderAction(r.id, 'delete', r.fullname)} class="btn-press tap-target rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100">Remove</button>
 							</div>
 						</td>
 					</tr>
@@ -184,5 +204,18 @@
 				{/each}
 			</tbody>
 		</table>
+	</div>
+{/if}
+
+{#if pendingRiderAction}
+	<div class="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-950/60 p-4" role="presentation" onclick={(event) => { if (event.target === event.currentTarget && !actionBusy) pendingRiderAction = null; }}>
+		<div role="dialog" aria-modal="true" aria-labelledby="rider-action-title" class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+			<h2 id="rider-action-title" class="font-heading text-lg font-semibold text-[var(--color-fg)]">{pendingRiderAction.action === 'delete' ? 'Remove rider?' : 'Suspend rider?'}</h2>
+			<p class="mt-2 text-sm text-[var(--color-fg-muted)]">{pendingRiderAction.action === 'delete' ? `This will permanently remove ${pendingRiderAction.name} and their rider account data.` : `This will suspend ${pendingRiderAction.name} and revoke their verification.`}</p>
+			<div class="mt-6 flex justify-end gap-3">
+				<button onclick={() => pendingRiderAction = null} disabled={actionBusy} class="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm font-medium text-[var(--color-fg-muted)] disabled:opacity-50">Cancel</button>
+				<button onclick={() => pendingRiderAction && riderAction(pendingRiderAction.id, pendingRiderAction.action)} disabled={actionBusy} class="rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 {pendingRiderAction.action === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-[var(--color-accent)] hover:bg-[var(--color-accent-dark)]'}">{actionBusy ? 'Working…' : pendingRiderAction.action === 'delete' ? 'Remove rider' : 'Suspend rider'}</button>
+			</div>
+		</div>
 	</div>
 {/if}

@@ -96,7 +96,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		const rows = await db.query.bookings.findMany({
 			where: eq(bookings.studentId, locals.user.id),
 			orderBy: desc(bookings.bookingTime),
-			with: { rider: { columns: { id: true, fullname: true, phone: true, serialNumber: true, tricycleModel: true, tricycleColour: true, avgRating: true } } }
+			with: { rider: { columns: { id: true, fullname: true, phone: true, plateNumber: true, serialNumber: true, tricycleModel: true, tricycleColour: true, avgRating: true } } }
 		});
 		return json({ bookings: rows });
 	}
@@ -121,7 +121,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 	// admin — all bookings
 	const rows = await db.query.bookings.findMany({
 		orderBy: desc(bookings.bookingTime),
-		with: { student: { columns: { id: true, fullname: true, phone: true, email: true } }, rider: { columns: { id: true, fullname: true, phone: true, serialNumber: true } } }
+		with: { student: { columns: { id: true, fullname: true, phone: true, email: true } }, rider: { columns: { id: true, fullname: true, phone: true, plateNumber: true, serialNumber: true } } }
 	});
 	return json({ bookings: rows });
 };

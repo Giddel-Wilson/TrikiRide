@@ -36,7 +36,7 @@
 				<div>
 					<p class="text-sm font-medium text-[var(--color-fg)]">{b.pickupLocation} → {b.destination}</p>
 					<p class="mt-1 text-xs text-[var(--color-fg-muted)]">{formatDate(b.bookingTime)}</p>
-					{#if b.rider}<p class="mt-1 text-xs text-[var(--color-fg-muted)]">Rider: {b.rider.fullname} · {b.rider.serialNumber}</p>{/if}
+					{#if b.rider}<p class="mt-1 text-xs text-[var(--color-fg-muted)]">Rider: {b.rider.fullname} · {b.rider.plateNumber ?? b.rider.serialNumber ?? 'Vehicle number pending'}</p>{/if}
 				</div>
 				<div class="text-right">
 					<p class="font-heading text-sm font-semibold text-[var(--color-accent)]">₦{b.fare}</p>

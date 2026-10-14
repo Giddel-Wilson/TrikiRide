@@ -41,7 +41,7 @@
 
 	<main class="mx-auto max-w-5xl px-5 py-8">
 		{#if data.rider && !data.rider.isVerified && data.verification?.status !== 'pending'}
-			<KycForm verification={data.verification} />
+			<KycForm verification={data.verification} vehicleIdentifier={data.rider.plateNumber ?? data.rider.serialNumber} />
 		{/if}
 		{@render children()}
 	</main>

@@ -18,6 +18,9 @@ export const ourFileRouter = {
 		.onUploadComplete(async ({ file }) => ({ url: file.ufsUrl })),
 	kycFaceScan: f({ image: { maxFileSize: '4MB', maxFileCount: 1 } })
 		.middleware(async ({ req }) => riderFromRequest(req))
+		.onUploadComplete(async ({ file }) => ({ url: file.ufsUrl })),
+	// Registration happens before a rider session exists, so profile photos use a public image-only route.
+	riderProfilePhoto: f({ image: { maxFileSize: '4MB', maxFileCount: 1 } })
 		.onUploadComplete(async ({ file }) => ({ url: file.ufsUrl }))
 } satisfies FileRouter;
 

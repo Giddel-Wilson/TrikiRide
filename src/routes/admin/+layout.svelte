@@ -22,7 +22,7 @@
 
 <div class="min-h-screen bg-[var(--color-bg)] md:flex">
 	<aside class="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-[var(--color-border)] bg-[var(--color-surface)] p-5 md:flex">
-		<a href="/admin"><Logo /></a>
+		<a href="/" aria-label="TrikRide home"><Logo /></a>
 		<nav class="mt-8 flex flex-col gap-1">
 			{#each nav as item (item.href)}
 				<a href={item.href} class="btn-press tap-target flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition {page.url.pathname === item.href
@@ -42,7 +42,7 @@
 
 	<div class="flex-1">
 		<header class="sticky top-0 z-30 flex items-center justify-between border-b border-[var(--color-border)] bg-white/90 px-5 py-4 backdrop-blur md:hidden">
-			<Logo size={22} />
+			<a href="/" aria-label="TrikRide home"><Logo size={22} /></a>
 			<button onclick={logout} class="text-sm text-[var(--color-fg-muted)]">Log out</button>
 		</header>
 		<main class="mx-auto max-w-6xl px-5 py-8">{@render children()}</main>

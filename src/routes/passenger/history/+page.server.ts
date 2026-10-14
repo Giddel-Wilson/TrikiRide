@@ -7,7 +7,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	const rows = await db.query.bookings.findMany({
 		where: eq(bookings.studentId, locals.user!.id),
 		orderBy: desc(bookings.bookingTime),
-		with: { rider: { columns: { fullname: true, serialNumber: true } } }
+		with: { rider: { columns: { fullname: true, plateNumber: true, serialNumber: true } } }
 	});
 	return { bookings: rows };
 };

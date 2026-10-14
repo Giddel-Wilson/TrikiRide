@@ -6,7 +6,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import { onDestroy, tick } from 'svelte';
 
-	let { verification }: { verification: { status: 'pending' | 'approved' | 'declined'; reviewNotes: string | null } | null | undefined } = $props();
+	let { verification, vehicleIdentifier }: { verification: { status: 'pending' | 'approved' | 'declined'; reviewNotes: string | null } | null | undefined; vehicleIdentifier: string | null } = $props();
 	type ActionId = 'mouth' | 'left' | 'right' | 'nod' | 'blink';
 	type Challenge = { id: ActionId; text: string; spoken: string };
 	const actionPool: Challenge[] = [
@@ -19,12 +19,16 @@
 	const { uploadFiles: uploadKycFiles } = genUploader<OurFileRouter>();
 
 	let documentType = $state<'nin' | 'drivers_license'>('nin');
+	let vehicleIdentifierType = $state<'plate' | 'serial'>('plate');
+	let vehicleIdentifierInput = $state('');
 	let documentFile = $state<File | null>(null);
 	let modalOpen = $state(false);
 	let busy = $state(false);
 	let uploadingEvidence = $state(false);
 	let scanReady = $state(false);
 	let complete = $state(false);
+	let settling = $state(false);
+	let captureCountdown = $state(0);
 	let submissionFailed = $state(false);
 	let statusText = $state('Starting your camera…');
 	let challenges = $state<Challenge[]>([]);
@@ -64,10 +68,13 @@
 
 	async function beginReview() {
 		if (!documentFile) { pushToast('Choose your NIN or driver’s licence first.', 'error'); return; }
+		if (!vehicleIdentifier && !vehicleIdentifierInput.trim()) { pushToast('Enter your plate or serial number to continue verification.', 'error'); return; }
 		busy = true;
 		challenges = pickChallenges();
 		challengeIndex = 0;
 		complete = false;
+		settling = false;
+		captureCountdown = 0;
 		submissionFailed = false;
 		uploadingEvidence = false;
 		faceCapture = null;
@@ -224,9 +231,19 @@
 		complete = true;
 		scanReady = false;
 		try {
+			settling = true;
+			speak('Liveness check complete. Relax your face, close your mouth, and look straight at the camera.');
+			for (let seconds = 10; seconds > 0; seconds--) {
+				captureCountdown = seconds;
+				statusText = `Relax your face and look at the camera. Capturing in ${seconds}…`;
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+			captureCountdown = 0;
+			settling = false;
 			faceCapture = await captureFace();
 			await submitEvidence();
 		} catch (cause) {
+			settling = false;
 			complete = false;
 			statusText = cause instanceof Error ? cause.message : 'Could not submit the request.';
 			pushToast(statusText, 'error');
@@ -268,7 +285,7 @@
 			const faceScanUrl = await uploadFileWithRetry('kycFaceScan', faceCapture);
 			const response = await fetch('/api/rider/verification', {
 				method: 'POST', headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ documentType, documentUrl, faceScanUrl })
+				body: JSON.stringify({ documentType, documentUrl, faceScanUrl, vehicleIdentifierType: vehicleIdentifier ? undefined : vehicleIdentifierType, vehicleIdentifier: vehicleIdentifier ? undefined : vehicleIdentifierInput.trim() })
 			});
 			if (!response.ok) throw new Error((await response.json()).message ?? 'Could not submit verification request.');
 			statusText = 'Request submitted. An admin will review your documents.';
@@ -329,6 +346,18 @@
 		<p class="mt-2 text-sm font-medium">Admin feedback: {verification.reviewNotes}</p>
 	{/if}
 	<div class="mt-4 max-w-xl">
+		{#if !vehicleIdentifier}
+			<div class="mb-3">
+				<label for="kycVehicleIdentifierType" class="block text-sm font-medium">Vehicle number for verification</label>
+				<div class="mt-1 flex gap-2">
+					<select id="kycVehicleIdentifierType" bind:value={vehicleIdentifierType} class="h-11 w-40 shrink-0 rounded-lg border border-amber-300 bg-white px-3 text-sm">
+						<option value="plate">Plate number</option><option value="serial">Serial number</option>
+					</select>
+					<input id="kycVehicleIdentifier" bind:value={vehicleIdentifierInput} required aria-label={vehicleIdentifierType === 'plate' ? 'Plate number' : 'Serial number'} placeholder={vehicleIdentifierType === 'plate' ? 'e.g. PHC-234-KK' : 'e.g. TRK-00231'} class="h-11 min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 text-sm" />
+				</div>
+				<p class="mt-1 text-xs">You chose N/A at signup. Provide one vehicle number before this verification request can be approved.</p>
+			</div>
+		{/if}
 		<label class="text-sm font-medium">Identification type
 			<select bind:value={documentType} class="mt-1 block w-full rounded-lg border border-amber-300 bg-white px-3 py-2">
 				<option value="nin">NIN</option><option value="drivers_license">Driver’s licence</option>
@@ -358,10 +387,24 @@
 					{#if !scanReady && !complete}
 						<div class="absolute inset-0 flex items-center justify-center bg-slate-950/75 px-8 text-center text-sm text-white">{statusText}</div>
 					{/if}
-					{#if complete}
+					{#if complete && !settling}
 						<div class="absolute inset-0 flex items-center justify-center bg-slate-950/55 px-8 text-center text-sm font-medium text-white">{statusText}</div>
 					{/if}
+					{#if complete && settling}
+						<div class="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/55 text-center text-white">
+							<p class="text-sm font-semibold">Relax your face and look straight ahead</p>
+							<span class="mt-2 rounded-full border-4 border-white/80 px-6 py-2 text-6xl font-bold tabular-nums drop-shadow-lg" aria-hidden="true">{captureCountdown}</span>
+							<span class="sr-only" aria-live="assertive">Capturing in {captureCountdown} seconds</span>
+						</div>
+					{/if}
 				</div>
+				{#if settling}
+					<div class="mt-3 flex items-center justify-center gap-2 rounded-xl bg-[var(--color-accent)] px-4 py-3 text-center font-semibold text-white" aria-live="polite">
+						<span>Capturing face in</span>
+						<span class="text-2xl tabular-nums">{captureCountdown}</span>
+						<span>{captureCountdown === 1 ? 'second' : 'seconds'}</span>
+					</div>
+				{/if}
 				<p aria-live="polite" class="mt-4 min-h-6 text-center text-sm font-semibold text-slate-800">{statusText}</p>
 				{#if scanReady && !complete}
 					<div class="mb-5 mt-3 grid grid-cols-3 gap-2">

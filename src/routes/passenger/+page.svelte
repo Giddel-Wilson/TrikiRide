@@ -258,7 +258,7 @@
 						{/if}
 						<div class="flex-1 min-w-0">
 							<p class="text-sm font-semibold text-[var(--color-fg)] truncate">{activeBooking.rider.fullname}</p>
-							<p class="text-xs text-[var(--color-fg-muted)]">{activeBooking.rider.serialNumber} · ★ {activeBooking.rider.avgRating}</p>
+							<p class="text-xs text-[var(--color-fg-muted)]">{activeBooking.rider.plateNumber ?? activeBooking.rider.serialNumber ?? 'Vehicle number pending'} · ★ {activeBooking.rider.avgRating}</p>
 						</div>
 						<a href="tel:{activeBooking.rider.phone}" aria-label="Call rider" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-[var(--color-accent)] hover:bg-green-200">
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.5 3.18 2 2 0 012.45 1h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 8.4a16 16 0 006.29 6.29l.79-.79a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>

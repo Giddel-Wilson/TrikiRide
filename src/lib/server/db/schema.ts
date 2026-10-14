@@ -31,7 +31,8 @@ export const riders = pgTable('riders', {
 	fullname: varchar('fullname', { length: 100 }).notNull(),
 	email: varchar('email', { length: 100 }).notNull().unique(),
 	phone: varchar('phone', { length: 15 }).notNull(),
-	serialNumber: varchar('serial_number', { length: 50 }).notNull().unique(),
+	plateNumber: varchar('plate_number', { length: 30 }).unique(),
+	serialNumber: varchar('serial_number', { length: 50 }).unique(),
 	tricycleModel: varchar('tricycle_model', { length: 100 }),
 	tricycleColour: varchar('tricycle_colour', { length: 50 }),
 	// Optional photo URL shown to passengers when matched (Chapter 3, 3.3.1-A-V) — no upload storage is

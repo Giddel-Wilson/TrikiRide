@@ -28,7 +28,7 @@
 			const res = await fetch('/api/auth/login', {
 				method: 'POST',
 				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({ email, password, role })
+				body: JSON.stringify({ identifier: email, password, role })
 			});
 			const data = await res.json();
 			if (!res.ok) { errorMsg = data.error ?? 'Something went wrong.'; return; }
@@ -75,7 +75,7 @@
 			</div>
 
 			<form class="space-y-5" onsubmit={submit}>
-				<InputGroup id="email" label="Email address" type="email" placeholder="you@uniport.edu.ng" bind:value={email} required />
+				<InputGroup id="email" label={role === 'rider' ? 'Email, plate number, or serial number' : 'Email address'} type={role === 'rider' ? 'text' : 'email'} placeholder={role === 'rider' ? 'Email or vehicle number' : 'you@uniport.edu.ng'} bind:value={email} required />
 				<InputGroup id="password" label="Password" type="password" placeholder="••••••••" bind:value={password} required />
 
 				{#if errorMsg}

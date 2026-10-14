@@ -111,6 +111,8 @@
 };
 			pushToast(msgs[action], 'success');
 			await invalidateAll();
+		} catch (cause) {
+			pushToast(cause instanceof Error ? cause.message : 'Could not update the ride. Check your connection and try again.', 'error');
 		} finally {
 			acting = false;
 		}
@@ -202,7 +204,7 @@
 <div class="flex flex-wrap items-center justify-between gap-4">
 	<div>
 		<h1 class="font-heading text-xl font-semibold text-[var(--color-fg)]">Welcome, {data.user.fullname.split(' ')[0]}</h1>
-		<p class="mt-0.5 text-sm text-[var(--color-fg-muted)]">{data.rider?.serialNumber}</p>
+		<p class="mt-0.5 text-sm text-[var(--color-fg-muted)]">{data.rider?.plateNumber ? `Plate ${data.rider.plateNumber}` : data.rider?.serialNumber ? `Serial ${data.rider.serialNumber}` : 'Vehicle number not provided'}</p>
 	</div>
 	<button onclick={toggleOnline} disabled={togglingOnline}
 		class="btn-press tap-target flex items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-semibold transition disabled:opacity-60 {online
@@ -359,9 +361,9 @@
 							<p class="ml-4 shrink-0 font-heading text-base font-semibold text-[var(--color-accent)]">₦{b.fare}</p>
 						</div>
 						<div class="mt-3 flex gap-2">
-							<button onclick={() => act(b.id, 'accept')} disabled={!data.rider?.isVerified || acting}
+							<button onclick={() => act(b.id, 'accept')} disabled={!data.rider?.isVerified || acting} title={!data.rider?.isVerified ? 'Complete KYC and wait for admin approval before accepting rides.' : undefined}
 								class="btn-press tap-target flex-1 rounded-lg bg-[var(--color-accent)] py-2 text-sm font-semibold text-white hover:bg-[var(--color-accent-dark)] disabled:opacity-50">
-								Accept
+								{data.rider?.isVerified ? 'Accept' : 'Verify to accept'}
 							</button>
 							<button onclick={() => act(b.id, 'decline')} disabled={acting}
     class="btn-press tap-target flex-1 rounded-lg border border-[var(--color-border)] py-2 text-sm font-medium text-[var(--color-fg-muted)] hover:text-[var(--color-fg)] disabled:opacity-50">

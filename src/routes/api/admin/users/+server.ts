@@ -16,6 +16,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 			email: true,
 			phone: true,
 			serialNumber: true,
+			plateNumber: true,
 			profilePhotoUrl: true,
 			isVerified: true,
 			isOnline: true,
